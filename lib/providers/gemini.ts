@@ -1,3 +1,4 @@
+import { GoogleGenAI, Modality } from "@google/genai";
 import { ImageOptions, PromptMeta, PromptResult, ProviderAdapter } from "./types";
 
 function pickSize(width?: number, height?: number): string {
@@ -5,38 +6,58 @@ function pickSize(width?: number, height?: number): string {
   return height > width ? "1024x1536" : width > height ? "1536x1024" : "1024x1024";
 }
 
+function extractTextFromResponse(response: unknown): string {
+  const candidate = (response as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> })?.candidates?.[0];
+  const parts = candidate?.content?.parts ?? [];
+  return parts.map((part) => part.text ?? "").join("\n").trim();
+}
+
+function extractImageBase64FromResponse(response: unknown): string | null {
+  const candidate = (response as {
+    candidates?: Array<{ content?: { parts?: Array<{ inlineData?: { data?: string } }> } }>;
+  })?.candidates?.[0];
+  const parts = candidate?.content?.parts ?? [];
+
+  for (const part of parts) {
+    if (part.inlineData?.data) {
+      return part.inlineData.data;
+    }
+  }
+
+  return null;
+}
+
 export function createGeminiProvider(apiKey: string): ProviderAdapter {
+  const client = new GoogleGenAI({ apiKey });
+
   return {
     async generatePromptFromImage(imageBase64: string, meta: PromptMeta): Promise<PromptResult> {
-      const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${encodeURIComponent(apiKey)}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contents: [
+      const response = await client.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: [
+          {
+            role: "user",
+            parts: [
               {
-                role: "user",
-                parts: [
-                  {
-                    text: "Analyze this PDF page image and return JSON object with keys: prompt, negativePrompt, suggestedSize, notes. Prompt should be full-powered and include composition, style, typography, colors, lighting, camera/angle, and constraints."
-                  },
-                  { text: `Metadata: page ${meta.pageIndex + 1}/${meta.totalPages ?? "unknown"}, file=${meta.fileName ?? "unknown"}` },
-                  { inlineData: { mimeType: "image/png", data: imageBase64 } }
-                ]
+                text:
+                  "Analyze this PDF page image and return strict JSON with keys: prompt, negativePrompt, suggestedSize, notes. Prompt must be full-powered and include composition, style, typography, colors, lighting, camera/angle, and hard constraints."
+              },
+              {
+                text: `Metadata: page ${meta.pageIndex + 1}/${meta.totalPages ?? "unknown"}, file=${meta.fileName ?? "unknown"}`
+              },
+              {
+                inlineData: {
+                  mimeType: "image/png",
+                  data: imageBase64
+                }
               }
             ]
-          })
-        }
-      );
+          }
+        ]
+      });
 
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data?.error?.message || "Gemini prompt generation failed");
-      }
-
-      const text: string = data.candidates?.[0]?.content?.parts?.[0]?.text ?? "{}";
-      const jsonText = text.replace(/^```json\s*/i, "").replace(/```$/i, "");
+      const text = extractTextFromResponse(response);
+      const jsonText = text.replace(/^```json\s*/i, "").replace(/```$/i, "").trim();
       const parsed = JSON.parse(jsonText) as PromptResult;
 
       return {
@@ -47,8 +68,26 @@ export function createGeminiProvider(apiKey: string): ProviderAdapter {
       };
     },
 
-    async generateImage(_prompt: string, _opts: ImageOptions) {
-      throw new Error("Gemini image generation not configured; prompt generation works.");
+    async generateImage(prompt: string, opts: ImageOptions) {
+      const fullPrompt = opts.negativePrompt
+        ? `${prompt}\n\nNegative prompt (avoid): ${opts.negativePrompt}`
+        : prompt;
+
+      const response = await client.models.generateContent({
+        model: "gemini-2.5-flash-image",
+        contents: fullPrompt,
+        config: {
+          responseModalities: [Modality.TEXT, Modality.IMAGE]
+        }
+      });
+
+      const imageBase64 = extractImageBase64FromResponse(response);
+      if (!imageBase64) {
+        const text = extractTextFromResponse(response);
+        throw new Error(text || "Gemini returned no image data.");
+      }
+
+      return { imageBase64 };
     }
   };
 }

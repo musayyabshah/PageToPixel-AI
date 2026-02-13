@@ -40,7 +40,12 @@ Open `http://localhost:3000`.
   - Input: `provider`, `apiKey`, `prompt`, `negativePrompt`, `size`
   - Output: `imageBase64`
 
+## Gemini support
+
+- Prompt generation uses Gemini multimodal model.
+- Image generation uses `gemini-2.5-flash-image` with both text and image response modalities.
+- Your Gemini key must have model access enabled in your Google AI account.
+
 ## Known limitations
 
-- Gemini image generation route returns a clear fallback error (prompt generation works).
 - PDF worker is loaded from `unpkg` CDN via `pdfjs-dist` worker URL.
