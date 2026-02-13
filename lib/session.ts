@@ -1,10 +1,14 @@
-import { timingSafeEqual } from "crypto";
+import { createHash, timingSafeEqual } from "crypto";
 import { cookies } from "next/headers";
-import { APP_PASSWORD, SESSION_COOKIE_NAME, SESSION_TOKEN } from "./config";
+import { APP_PASSWORD, SESSION_COOKIE_NAME } from "./config";
+
+function passwordHash(password: string): string {
+  return createHash("sha256").update(password).digest("hex");
+}
 
 export function isValidPassword(input: string): boolean {
-  const expected = Buffer.from(APP_PASSWORD);
-  const actual = Buffer.from(input);
+  const expected = Buffer.from(passwordHash(APP_PASSWORD));
+  const actual = Buffer.from(passwordHash(input));
   if (expected.length !== actual.length) {
     return false;
   }
@@ -12,7 +16,7 @@ export function isValidPassword(input: string): boolean {
 }
 
 export function getExpectedSessionToken(): string {
-  return SESSION_TOKEN;
+  return passwordHash(APP_PASSWORD);
 }
 
 export function hasValidSessionCookie(): boolean {

@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { SESSION_COOKIE_NAME, SESSION_TOKEN } from "./lib/config";
+import { createHash } from "crypto";
+import { APP_PASSWORD, SESSION_COOKIE_NAME } from "./lib/config";
+
+function expectedToken(): string {
+  return createHash("sha256").update(APP_PASSWORD).digest("hex");
+}
 
 const PUBLIC_PATHS = ["/unlock", "/api/auth/login", "/_next", "/favicon.ico"];
 
@@ -11,7 +16,7 @@ export function middleware(request: NextRequest) {
   }
 
   const token = request.cookies.get(SESSION_COOKIE_NAME)?.value;
-  if (token === SESSION_TOKEN) {
+  if (token === expectedToken()) {
     return NextResponse.next();
   }
 
