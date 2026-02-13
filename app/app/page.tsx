@@ -5,8 +5,8 @@ import { ApiKeyManager } from "@/components/ApiKeyManager";
 import { PdfUploader } from "@/components/PdfUploader";
 import { PromptCard } from "@/components/PromptCard";
 import { ProviderSelector } from "@/components/ProviderSelector";
-import { APP_PASSWORD, DEFAULT_PAGES_TO_PROCESS, KEY_STORAGE_PREFIX, MAX_PAGE_LIMIT } from "@/lib/config";
-import { decryptText, encryptText } from "@/lib/crypto";
+import { DEFAULT_PAGES_TO_PROCESS, KEY_STORAGE_PREFIX, MAX_PAGE_LIMIT } from "@/lib/config";
+import { decryptText, encryptText, getOrCreateClientSecret } from "@/lib/crypto";
 import { renderPdfPages } from "@/lib/pdf";
 import { ProviderName } from "@/lib/providers/types";
 
@@ -44,7 +44,7 @@ export default function AppPage() {
   async function getDecryptedApiKey(): Promise<string> {
     const encrypted = localStorage.getItem(storageKey);
     if (!encrypted) throw new Error("No saved API key for selected provider.");
-    return decryptText(encrypted, APP_PASSWORD);
+    return decryptText(encrypted, getOrCreateClientSecret());
   }
 
   async function handleSaveKey() {
@@ -52,7 +52,7 @@ export default function AppPage() {
       setKeyStatus("Please enter a key before saving.");
       return;
     }
-    const encrypted = await encryptText(apiKeyInput.trim(), APP_PASSWORD);
+    const encrypted = await encryptText(apiKeyInput.trim(), getOrCreateClientSecret());
     localStorage.setItem(storageKey, encrypted);
     setApiKeyInput("");
     setKeyStatus("Encrypted key saved locally.");
@@ -188,18 +188,11 @@ export default function AppPage() {
     setGlobalStatus("Image generation completed.");
   }
 
-  async function logout() {
-    await fetch("/api/auth/logout", { method: "POST" });
-    window.location.href = "/unlock";
-  }
 
   return (
     <main className="mx-auto w-full max-w-7xl p-4 md:p-8">
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-2xl font-semibold">PageToPixel AI</h1>
-        <button type="button" onClick={logout} className="rounded-md bg-slate-800 px-3 py-2 text-sm">
-          Logout
-        </button>
       </div>
 
       <section className="mb-6 grid gap-4 rounded-xl border border-slate-800 bg-slate-900 p-4 md:grid-cols-2">

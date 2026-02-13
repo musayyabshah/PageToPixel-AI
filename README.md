@@ -1,21 +1,11 @@
 # PageToPixel AI
 
-A production-ready Next.js 14 App Router app for:
-- password-gated access
-- provider selection (OpenAI or Gemini)
-- encrypted local API key storage
-- PDF page rendering in-browser
-- prompt generation per page via server proxy
-- image generation per prompt (OpenAI supported)
-
-## Security model
-
-- App password is hardcoded as `shah1122` in `lib/config.ts` (**insecure for real-world use**, implemented as requested).
-- Successful unlock sets an HttpOnly cookie valid for 12 hours.
-- Middleware protects all app routes.
-- API routes verify session cookie.
-- User API keys are **not stored server-side**; keys are decrypted in browser and sent per request only.
-- API keys are encrypted at rest in browser localStorage using PBKDF2 -> AES-GCM with passphrase `shah1122`.
+A Next.js 14 App Router app to:
+- choose an AI provider (OpenAI/Gemini)
+- save provider API keys locally (encrypted in browser storage)
+- upload PDFs and render pages client-side
+- generate rich image prompts per page
+- generate images and download outputs
 
 ## Local development
 
@@ -31,12 +21,16 @@ Open `http://localhost:3000`.
 1. Push this repo to GitHub.
 2. Import in Vercel.
 3. Framework preset: Next.js.
-4. Build command: `npm run build` (default).
-5. Output: default.
+4. Build command: `npm run build`.
 
-No required server-side environment variables for user keys.
+## Security model
 
-## API behavior
+- No app password gate.
+- API keys are never stored server-side.
+- API keys are encrypted in localStorage with WebCrypto (PBKDF2 -> AES-GCM).
+- Decrypted keys are sent only per-request to server proxy routes.
+
+## API routes
 
 - `POST /api/prompt`
   - Input: `provider`, `apiKey`, `pageImage`, `pageIndex`, optional metadata
@@ -48,6 +42,5 @@ No required server-side environment variables for user keys.
 
 ## Known limitations
 
-- Gemini image generation is not wired in this implementation (SDK/API availability varies); prompt generation works and image route returns a clear fallback error.
-- PDF rendering relies on `pdfjs-dist` worker loaded from CDN (`unpkg`).
-- Password hardcoding is intentionally insecure and should be replaced with a secret-based auth flow in production.
+- Gemini image generation route returns a clear fallback error (prompt generation works).
+- PDF worker is loaded from `unpkg` CDN via `pdfjs-dist` worker URL.

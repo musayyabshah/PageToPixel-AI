@@ -1,3 +1,5 @@
+import { CLIENT_SECRET_STORAGE_KEY } from "./config";
+
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 
@@ -16,14 +18,22 @@ function fromBase64(value: string): Uint8Array {
   return Uint8Array.from(binary, (char) => char.charCodeAt(0));
 }
 
-async function deriveKey(passphrase: string, salt: Uint8Array) {
-  const baseKey = await crypto.subtle.importKey(
-    "raw",
-    encoder.encode(passphrase),
-    "PBKDF2",
-    false,
-    ["deriveKey"]
-  );
+function randomSecret(length = 32): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(length));
+  return toBase64(bytes);
+}
+
+export function getOrCreateClientSecret(): string {
+  const existing = localStorage.getItem(CLIENT_SECRET_STORAGE_KEY);
+  if (existing) return existing;
+
+  const created = randomSecret();
+  localStorage.setItem(CLIENT_SECRET_STORAGE_KEY, created);
+  return created;
+}
+
+async function deriveKey(secret: string, salt: Uint8Array) {
+  const baseKey = await crypto.subtle.importKey("raw", encoder.encode(secret), "PBKDF2", false, ["deriveKey"]);
 
   return crypto.subtle.deriveKey(
     {
@@ -39,29 +49,23 @@ async function deriveKey(passphrase: string, salt: Uint8Array) {
   );
 }
 
-export async function encryptText(plainText: string, passphrase: string): Promise<string> {
+export async function encryptText(plainText: string, secret: string): Promise<string> {
   const salt = crypto.getRandomValues(new Uint8Array(16));
   const iv = crypto.getRandomValues(new Uint8Array(12));
-  const key = await deriveKey(passphrase, salt);
+  const key = await deriveKey(secret, salt);
 
-  const encrypted = await crypto.subtle.encrypt(
-    { name: "AES-GCM", iv },
-    key,
-    encoder.encode(plainText)
-  );
+  const encrypted = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, encoder.encode(plainText));
 
-  const payload: EncryptedPayload = {
+  return JSON.stringify({
     iv: toBase64(iv),
     salt: toBase64(salt),
     cipherText: toBase64(new Uint8Array(encrypted))
-  };
-
-  return JSON.stringify(payload);
+  } satisfies EncryptedPayload);
 }
 
-export async function decryptText(encryptedPayload: string, passphrase: string): Promise<string> {
+export async function decryptText(encryptedPayload: string, secret: string): Promise<string> {
   const payload = JSON.parse(encryptedPayload) as EncryptedPayload;
-  const key = await deriveKey(passphrase, fromBase64(payload.salt));
+  const key = await deriveKey(secret, fromBase64(payload.salt));
 
   const decrypted = await crypto.subtle.decrypt(
     { name: "AES-GCM", iv: fromBase64(payload.iv) },
