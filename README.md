@@ -4,8 +4,7 @@ A Next.js 14 App Router app to:
 - choose an AI provider (OpenAI/Gemini)
 - save provider API keys locally (encrypted in browser storage)
 - upload PDFs and render pages client-side
-- generate rich image prompts per page
-- generate images and download outputs
+- generate premium, highly-detailed image prompts per page
 
 ## Local development
 
@@ -28,7 +27,7 @@ Open `http://localhost:3000`.
 - No app password gate.
 - API keys are never stored server-side.
 - API keys are encrypted in localStorage with WebCrypto (PBKDF2 -> AES-GCM).
-- Decrypted keys are sent only per-request to server proxy routes.
+- Decrypted keys are sent only per-request to server prompt route.
 
 ## API routes
 
@@ -36,15 +35,11 @@ Open `http://localhost:3000`.
   - Input: `provider`, `apiKey`, `pageImage`, `pageIndex`, optional metadata
   - Output: `prompt`, optional `negativePrompt`, `suggestedSize`, `notes`
 
-- `POST /api/image`
-  - Input: `provider`, `apiKey`, `prompt`, `negativePrompt`, `size`
-  - Output: `imageBase64`
+## Prompt quality
 
-## Gemini support
-
-- Prompt generation uses Gemini multimodal model.
-- Image generation uses `gemini-2.5-flash-image` with both text and image response modalities.
-- Your Gemini key must have model access enabled in your Google AI account.
+- OpenAI prompt generation uses `client.responses.create` with model `gpt-5.2`.
+- Backend uses a high-precision prompt-engineering system instruction for composition, style, typography, palette, lighting, material detail, and strict recreation constraints.
+- Gemini prompt generation also returns strict JSON prompt payloads.
 
 ## Known limitations
 

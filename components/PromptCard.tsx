@@ -12,24 +12,19 @@ type PromptItem = {
   size: string;
   notes?: string;
   promptStatus: "idle" | "generating" | "done" | "error";
-  imageStatus: "idle" | "generating" | "done" | "error";
   promptError?: string;
-  imageError?: string;
-  outputImageBase64?: string;
 };
 
 export function PromptCard({
   item,
   onPromptChange,
   onSizeChange,
-  onGeneratePrompt,
-  onGenerateImage
+  onGeneratePrompt
 }: {
   item: PromptItem;
   onPromptChange: (id: string, prompt: string) => void;
   onSizeChange: (id: string, size: string) => void;
   onGeneratePrompt: (id: string) => void;
-  onGenerateImage: (id: string) => void;
 }) {
   return (
     <div className="grid gap-4 rounded-xl border border-slate-800 bg-slate-900 p-4 md:grid-cols-[220px,1fr,260px]">
@@ -40,19 +35,20 @@ export function PromptCard({
       </div>
 
       <div>
-        <label className="mb-1 block text-xs uppercase tracking-wide text-slate-400">Prompt</label>
+        <label className="mb-1 block text-xs uppercase tracking-wide text-slate-400">Best Prompt</label>
         <textarea
           value={item.prompt}
           onChange={(e) => onPromptChange(item.id, e.target.value)}
-          rows={8}
+          rows={10}
           className="w-full rounded-md border border-slate-700 bg-slate-950 p-2 text-sm"
         />
         {item.notes && <p className="mt-2 text-xs text-slate-400">Notes: {item.notes}</p>}
+        {item.negativePrompt && <p className="mt-2 text-xs text-slate-400">Negative: {item.negativePrompt}</p>}
         {item.promptError && <p className="mt-2 text-sm text-rose-400">Prompt error: {item.promptError}</p>}
       </div>
 
       <div className="space-y-2">
-        <label className="mb-1 block text-xs uppercase tracking-wide text-slate-400">Size</label>
+        <label className="mb-1 block text-xs uppercase tracking-wide text-slate-400">Suggested Size</label>
         <select
           value={item.size}
           onChange={(e) => onSizeChange(item.id, e.target.value)}
@@ -68,35 +64,9 @@ export function PromptCard({
           disabled={item.promptStatus === "generating"}
           className="w-full rounded-md bg-indigo-500 px-3 py-2 text-sm font-medium disabled:opacity-50"
         >
-          {item.promptStatus === "generating" ? "Generating prompt..." : "Generate prompt"}
+          {item.promptStatus === "generating" ? "Generating prompt..." : "Regenerate best prompt"}
         </button>
-        <button
-          type="button"
-          onClick={() => onGenerateImage(item.id)}
-          disabled={!item.prompt || item.imageStatus === "generating"}
-          className="w-full rounded-md bg-emerald-500 px-3 py-2 text-sm font-medium disabled:opacity-50"
-        >
-          {item.imageStatus === "generating" ? "Creating..." : "Create image"}
-        </button>
-        <p className="text-xs text-slate-400">Prompt: {item.promptStatus} · Image: {item.imageStatus}</p>
-        {item.imageError && <p className="text-sm text-rose-400">{item.imageError}</p>}
-        {item.outputImageBase64 && (
-          <div className="space-y-2">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={`data:image/png;base64,${item.outputImageBase64}`}
-              alt="Generated"
-              className="w-full rounded border border-slate-700"
-            />
-            <a
-              href={`data:image/png;base64,${item.outputImageBase64}`}
-              download={`page-${item.pageIndex + 1}.png`}
-              className="block rounded-md bg-slate-700 px-3 py-2 text-center text-sm"
-            >
-              Download image
-            </a>
-          </div>
-        )}
+        <p className="text-xs text-slate-400">Prompt status: {item.promptStatus}</p>
       </div>
     </div>
   );

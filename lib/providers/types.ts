@@ -15,13 +15,6 @@ export type PromptMeta = {
   height?: number;
 };
 
-export type ImageOptions = {
-  negativePrompt?: string;
-  size?: string;
-  seed?: number;
-};
-
 export type ProviderAdapter = {
   generatePromptFromImage: (imageBase64: string, meta: PromptMeta) => Promise<PromptResult>;
-  generateImage: (prompt: string, opts: ImageOptions) => Promise<{ imageBase64: string }>;
 };

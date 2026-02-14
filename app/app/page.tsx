@@ -22,10 +22,7 @@ type PromptItem = {
   size: string;
   notes?: string;
   promptStatus: "idle" | "generating" | "done" | "error";
-  imageStatus: "idle" | "generating" | "done" | "error";
   promptError?: string;
-  imageError?: string;
-  outputImageBase64?: string;
 };
 
 export default function AppPage() {
@@ -80,7 +77,6 @@ export default function AppPage() {
         prompt: "",
         size: "1024x1024",
         promptStatus: "idle" as const,
-        imageStatus: "idle" as const
       }));
       setItems(preparedItems);
       setGlobalStatus(`Loaded ${rendered.pages.length} page(s). Generating prompts...`);
@@ -139,36 +135,6 @@ export default function AppPage() {
     }
   }
 
-  async function generateImageForItem(id: string) {
-    const item = items.find((i) => i.id === id);
-    if (!item) return;
-
-    updateItem(id, { imageStatus: "generating", imageError: undefined });
-    try {
-      const apiKey = await getDecryptedApiKey();
-      const res = await fetch("/api/image", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          provider,
-          apiKey,
-          prompt: item.prompt,
-          negativePrompt: item.negativePrompt,
-          size: item.size
-        })
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Image generation failed.");
-
-      updateItem(id, { imageStatus: "done", outputImageBase64: data.imageBase64 });
-    } catch (error) {
-      updateItem(id, {
-        imageStatus: "error",
-        imageError: error instanceof Error ? error.message : "Image generation failed"
-      });
-    }
-  }
-
   async function generatePromptsForAll() {
     setGlobalStatus("Generating prompts...");
     for (const item of items) {
@@ -178,15 +144,6 @@ export default function AppPage() {
     setGlobalStatus("Prompt generation completed.");
   }
 
-  async function generateImagesForAll() {
-    setGlobalStatus("Generating images...");
-    for (const item of items) {
-      if (!item.prompt.trim()) continue;
-      // eslint-disable-next-line no-await-in-loop
-      await generateImageForItem(item.id);
-    }
-    setGlobalStatus("Image generation completed.");
-  }
 
 
   return (
@@ -227,14 +184,6 @@ export default function AppPage() {
         >
           Generate prompts for all pages
         </button>
-        <button
-          type="button"
-          onClick={generateImagesForAll}
-          disabled={!items.length}
-          className="rounded-md bg-emerald-500 px-4 py-2 text-sm font-medium disabled:opacity-50"
-        >
-          Create images for all prompts
-        </button>
       </section>
 
       <p className="mb-4 text-sm text-slate-400">
@@ -250,7 +199,6 @@ export default function AppPage() {
             onPromptChange={(id, prompt) => updateItem(id, { prompt })}
             onSizeChange={(id, size) => updateItem(id, { size })}
             onGeneratePrompt={generatePromptForItem}
-            onGenerateImage={generateImageForItem}
           />
         ))}
       </div>
