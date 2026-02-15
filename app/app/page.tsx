@@ -79,12 +79,12 @@ export default function AppPage() {
         promptStatus: "idle" as const,
       }));
       setItems(preparedItems);
-      setGlobalStatus(`Loaded ${rendered.pages.length} page(s). Generating prompts...`);
+      setGlobalStatus(`Loaded ${rendered.pages.length} page(s). Generating visual prompts...`);
       for (const item of preparedItems) {
         // eslint-disable-next-line no-await-in-loop
         await generatePromptForItem(item.id, item);
       }
-      setGlobalStatus("Prompt generation completed.");
+      setGlobalStatus("Visual prompt generation completed.");
     } catch (error) {
       setGlobalStatus(error instanceof Error ? error.message : "Failed to parse PDF.");
     } finally {
@@ -136,12 +136,12 @@ export default function AppPage() {
   }
 
   async function generatePromptsForAll() {
-    setGlobalStatus("Generating prompts...");
+    setGlobalStatus("Generating visual prompts...");
     for (const item of items) {
       // eslint-disable-next-line no-await-in-loop
       await generatePromptForItem(item.id);
     }
-    setGlobalStatus("Prompt generation completed.");
+    setGlobalStatus("Visual prompt generation completed.");
   }
 
 
@@ -182,7 +182,7 @@ export default function AppPage() {
           disabled={!items.length}
           className="rounded-md bg-indigo-500 px-4 py-2 text-sm font-medium disabled:opacity-50"
         >
-          Generate prompts for all pages
+          Generate visual prompts for all pages
         </button>
       </section>
 

@@ -35,7 +35,7 @@ export function PromptCard({
       </div>
 
       <div>
-        <label className="mb-1 block text-xs uppercase tracking-wide text-slate-400">Best Prompt</label>
+        <label className="mb-1 block text-xs uppercase tracking-wide text-slate-400">Visual Prompt (script → side-screen)</label>
         <textarea
           value={item.prompt}
           onChange={(e) => onPromptChange(item.id, e.target.value)}

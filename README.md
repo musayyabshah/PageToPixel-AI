@@ -4,7 +4,7 @@ A Next.js 14 App Router app to:
 - choose an AI provider (OpenAI/Gemini)
 - save provider API keys locally (encrypted in browser storage)
 - upload PDFs and render pages client-side
-- generate premium, highly-detailed image prompts per page
+- convert each PDF page script/content into premium side-screen visual prompts
 
 ## Local development
 
@@ -38,7 +38,7 @@ Open `http://localhost:3000`.
 ## Prompt quality
 
 - OpenAI prompt generation uses `client.responses.create` with model `gpt-5.2`.
-- Backend uses a high-precision prompt-engineering system instruction for composition, style, typography, palette, lighting, material detail, and strict recreation constraints.
+- Backend is tuned for script-to-visual conversion (not page recreation), optimized for side-screen news/video visuals and explicitly excludes anchors/opening screens.
 - Gemini prompt generation also returns strict JSON prompt payloads.
 
 ## Known limitations

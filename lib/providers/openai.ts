@@ -6,26 +6,45 @@ function pickSize(width?: number, height?: number): string {
   return height > width ? "1024x1536" : width > height ? "1536x1024" : "1024x1024";
 }
 
-const SYSTEM_PROMPT = `You are an elite visual reconstruction prompt engineer.
-Your task: inspect one PDF page image and produce a best-in-class, production-ready image-generation prompt that recreates the page faithfully.
+function parsePromptJson(raw: string): PromptResult {
+  try {
+    return JSON.parse(raw) as PromptResult;
+  } catch {
+    const start = raw.indexOf("{");
+    const end = raw.lastIndexOf("}");
+    if (start >= 0 && end > start) {
+      return JSON.parse(raw.slice(start, end + 1)) as PromptResult;
+    }
+    throw new Error("Model did not return valid JSON prompt payload.");
+  }
+}
 
-Output strict JSON with keys:
+const SYSTEM_PROMPT = `You are a senior visual prompt director for YouTube/news side-screen visuals.
+
+Goal:
+Convert the content of the provided PDF page (usually script/text) into ONE "ready-to-use" cinematic image prompt.
+Do NOT recreate the page layout.
+Do NOT describe document structure.
+Do NOT include anchors/news presenters/studio host/opening screen.
+Go straight to meaningful visual storytelling for that script segment.
+
+Return strict JSON with keys:
 - prompt (string, required)
-- negativePrompt (string, optional but recommended)
+- negativePrompt (string, optional)
 - suggestedSize (string: 1024x1024 | 1024x1536 | 1536x1024)
-- notes (string, concise implementation hints)
+- notes (string, optional)
 
-Quality requirements for prompt:
-1) Cover layout/composition precisely: scene structure, subject placement, hierarchy, spacing, focal points.
-2) Capture style: art direction, medium, rendering style, realism vs illustration, texture detail.
-3) Typography guidance when text exists: font vibe, weight, casing, alignment, kerning/leading, legibility constraints.
-4) Color science: palette names + dominant/accent colors + contrast relationship.
-5) Lighting/camera: direction, softness, exposure, lens vibe, viewpoint, depth of field.
-6) Material/detail fidelity: surfaces, edges, shadows, reflections, gradients, print effects.
-7) Explicit constraints: what must be preserved and what must be avoided.
-8) Write in one coherent, model-friendly block; avoid vague words.
+Prompt quality requirements:
+1) Subject clarity: who/what is happening, where, and why it matters.
+2) Cinematic composition for side-screen context: strong focal subject, clean background hierarchy.
+3) Visual style: realistic documentary/news-style b-roll feel unless script clearly needs illustration.
+4) Lighting/camera details: lens feel, angle, depth, motion feeling, contrast.
+5) Color direction: palette + mood aligned with topic urgency.
+6) Era/location cues and props if implied by script.
+7) Avoid clutter and text overlays unless script explicitly requires signage.
+8) Make prompt directly usable in image generators with high specificity.
 
-If the page is mostly textual or abstract, still provide a visual recreation prompt for a polished poster/editorial page while preserving structure.
+Negative prompt should avoid: anchors, news desk, studio set, title cards, logos, watermarks, unreadable text, extra limbs, blur, low detail.
 Return only JSON.`;
 
 export function createOpenAIProvider(apiKey: string): ProviderAdapter {
@@ -45,7 +64,7 @@ export function createOpenAIProvider(apiKey: string): ProviderAdapter {
             content: [
               {
                 type: "input_text",
-                text: `File: ${meta.fileName ?? "unknown"} | Page: ${meta.pageIndex + 1}/${meta.totalPages ?? "unknown"} | Native size: ${meta.width ?? "?"}x${meta.height ?? "?"}`
+                text: `Extract the page meaning/script and convert it to one best visual prompt. File: ${meta.fileName ?? "unknown"} | Page: ${meta.pageIndex + 1}/${meta.totalPages ?? "unknown"}.`
               },
               {
                 type: "input_image",
@@ -57,7 +76,7 @@ export function createOpenAIProvider(apiKey: string): ProviderAdapter {
         text: {
           format: {
             type: "json_schema",
-            name: "reconstruction_prompt",
+            name: "script_to_visual_prompt",
             schema: {
               type: "object",
               additionalProperties: false,
@@ -74,8 +93,7 @@ export function createOpenAIProvider(apiKey: string): ProviderAdapter {
         }
       });
 
-      const raw = response.output_text || "{}";
-      const parsed = JSON.parse(raw) as PromptResult;
+      const parsed = parsePromptJson(response.output_text || "{}");
       return {
         prompt: parsed.prompt,
         negativePrompt: parsed.negativePrompt,

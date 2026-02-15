@@ -12,6 +12,19 @@ function extractTextFromResponse(response: unknown): string {
   return parts.map((part) => part.text ?? "").join("\n").trim();
 }
 
+function parsePromptJson(raw: string): PromptResult {
+  try {
+    return JSON.parse(raw) as PromptResult;
+  } catch {
+    const start = raw.indexOf("{");
+    const end = raw.lastIndexOf("}");
+    if (start >= 0 && end > start) {
+      return JSON.parse(raw.slice(start, end + 1)) as PromptResult;
+    }
+    throw new Error("Model did not return valid JSON prompt payload.");
+  }
+}
+
 export function createGeminiProvider(apiKey: string): ProviderAdapter {
   const client = new GoogleGenAI({ apiKey });
 
@@ -25,7 +38,7 @@ export function createGeminiProvider(apiKey: string): ProviderAdapter {
             parts: [
               {
                 text:
-                  "Analyze this PDF page image and return strict JSON: {prompt, negativePrompt, suggestedSize, notes}. Make the prompt premium quality: composition, style, typography, palette, lighting/camera, material details, and constraints to faithfully recreate visuals."
+                  "Read this PDF page (script/text) and convert it into one premium side-screen visual prompt for a news/youtube video. Do not recreate document layout. Do not include anchors, host, opening screen, studio desk. Return strict JSON with keys: prompt, negativePrompt, suggestedSize, notes."
               },
               { text: `File: ${meta.fileName ?? "unknown"} | Page ${meta.pageIndex + 1}/${meta.totalPages ?? "unknown"}` },
               { inlineData: { mimeType: "image/png", data: imageBase64 } }
@@ -34,9 +47,7 @@ export function createGeminiProvider(apiKey: string): ProviderAdapter {
         ]
       });
 
-      const text = extractTextFromResponse(response);
-      const jsonText = text.replace(/^```json\s*/i, "").replace(/```$/i, "").trim();
-      const parsed = JSON.parse(jsonText) as PromptResult;
+      const parsed = parsePromptJson(extractTextFromResponse(response));
 
       return {
         prompt: parsed.prompt,
