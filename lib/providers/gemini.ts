@@ -1,5 +1,5 @@
 import { GoogleGenAI } from "@google/genai";
-import { PromptMeta, PromptResult, ProviderAdapter } from "./types";
+import { ImageGenerationResult, PromptMeta, PromptResult, ProviderAdapter, ScriptToolkitResult } from "./types";
 
 function pickSize(width?: number, height?: number): string {
   if (!width || !height) return "1024x1024";
@@ -12,18 +12,37 @@ function extractTextFromResponse(response: unknown): string {
   return parts.map((part) => part.text ?? "").join("\n").trim();
 }
 
-function parsePromptJson(raw: string): PromptResult {
+function parseJsonPayload<T>(raw: string): T {
   try {
-    return JSON.parse(raw) as PromptResult;
+    return JSON.parse(raw) as T;
   } catch {
     const start = raw.indexOf("{");
     const end = raw.lastIndexOf("}");
     if (start >= 0 && end > start) {
-      return JSON.parse(raw.slice(start, end + 1)) as PromptResult;
+      return JSON.parse(raw.slice(start, end + 1)) as T;
     }
-    throw new Error("Model did not return valid JSON prompt payload.");
+    throw new Error("Model did not return valid JSON payload.");
   }
 }
+
+const SCRIPT_TOOLKIT_PROMPT = `Build a premium, script-grounded resource toolkit for professional video editors.
+Return strict JSON with this exact shape:
+{
+  "summary": string,
+  "productionAngle": string,
+  "imagePrompts": [{"sceneTitle": string, "prompt": string, "visualGoal": string, "suggestedSearchLink": string}],
+  "imageReferences": [{"title": string, "description": string, "url": string, "source": string}],
+  "newsLinks": [{"title": string, "description": string, "url": string, "source": string}],
+  "videoReferences": [{"title": string, "description": string, "url": string, "source": string}],
+  "researchReferences": [{"title": string, "description": string, "url": string, "source": string}]
+}
+
+Rules:
+- 6-10 image prompts.
+- 6-10 resources per list.
+- Links must be complete https URLs.
+- Prefer trusted sources; use direct search URLs if needed and ensure query keywords match the script.
+- JSON only.`;
 
 export function createGeminiProvider(apiKey: string): ProviderAdapter {
   const client = new GoogleGenAI({ apiKey });
@@ -47,7 +66,7 @@ export function createGeminiProvider(apiKey: string): ProviderAdapter {
         ]
       });
 
-      const parsed = parsePromptJson(extractTextFromResponse(response));
+      const parsed = parseJsonPayload<PromptResult>(extractTextFromResponse(response));
 
       return {
         prompt: parsed.prompt,
@@ -55,6 +74,28 @@ export function createGeminiProvider(apiKey: string): ProviderAdapter {
         notes: parsed.notes,
         suggestedSize: parsed.suggestedSize || pickSize(meta.width, meta.height)
       };
+    },
+
+    async generateImage(): Promise<ImageGenerationResult> {
+      throw new Error("Direct image generation is currently available with the OpenAI provider in this app.");
+    },
+
+    async generateScriptToolkit(scriptText: string, meta?: { fileName?: string }): Promise<ScriptToolkitResult> {
+      const response = await client.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: [
+          {
+            role: "user",
+            parts: [
+              { text: SCRIPT_TOOLKIT_PROMPT },
+              { text: `File: ${meta?.fileName ?? "unknown"}` },
+              { text: `Script:\n${scriptText.slice(0, 18000)}` }
+            ]
+          }
+        ]
+      });
+
+      return parseJsonPayload<ScriptToolkitResult>(extractTextFromResponse(response));
     }
   };
 }

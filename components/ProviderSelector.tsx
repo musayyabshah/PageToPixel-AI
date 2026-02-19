@@ -11,11 +11,11 @@ export function ProviderSelector({
 }) {
   return (
     <div>
-      <label className="mb-1 block text-sm text-slate-300">Provider</label>
+      <label className="mb-1 block text-sm text-slate-300">AI Provider</label>
       <select
         value={provider}
         onChange={(e) => onChange(e.target.value as ProviderName)}
-        className="w-full rounded-md border border-slate-700 bg-slate-900 px-3 py-2"
+        className="w-full rounded-xl border border-white/15 bg-slate-950/80 px-3 py-2"
       >
         <option value="openai">OpenAI</option>
         <option value="gemini">Google Gemini</option>
