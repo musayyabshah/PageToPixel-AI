@@ -38,7 +38,7 @@ async function deriveKey(secret: string, salt: Uint8Array) {
   return crypto.subtle.deriveKey(
     {
       name: "PBKDF2",
-      salt,
+      salt: salt as BufferSource,
       iterations: 120000,
       hash: "SHA-256"
     },
@@ -54,7 +54,7 @@ export async function encryptText(plainText: string, secret: string): Promise<st
   const iv = crypto.getRandomValues(new Uint8Array(12));
   const key = await deriveKey(secret, salt);
 
-  const encrypted = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, encoder.encode(plainText));
+  const encrypted = await crypto.subtle.encrypt({ name: "AES-GCM", iv: iv as BufferSource }, key, encoder.encode(plainText));
 
   return JSON.stringify({
     iv: toBase64(iv),
@@ -68,9 +68,9 @@ export async function decryptText(encryptedPayload: string, secret: string): Pro
   const key = await deriveKey(secret, fromBase64(payload.salt));
 
   const decrypted = await crypto.subtle.decrypt(
-    { name: "AES-GCM", iv: fromBase64(payload.iv) },
+    { name: "AES-GCM", iv: fromBase64(payload.iv) as BufferSource },
     key,
-    fromBase64(payload.cipherText)
+    fromBase64(payload.cipherText) as BufferSource
   );
 
   return decoder.decode(decrypted);
