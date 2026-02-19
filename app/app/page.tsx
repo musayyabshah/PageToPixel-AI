@@ -4,32 +4,51 @@ import { useMemo, useState, type ReactNode } from "react";
 import { ApiKeyManager } from "@/components/ApiKeyManager";
 import { PdfUploader } from "@/components/PdfUploader";
 import { ProviderSelector } from "@/components/ProviderSelector";
-import { DEFAULT_PAGES_TO_PROCESS, KEY_STORAGE_PREFIX, MAX_PAGE_LIMIT } from "@/lib/config";
+import { KEY_STORAGE_PREFIX } from "@/lib/config";
 import { decryptText, encryptText, getOrCreateClientSecret } from "@/lib/crypto";
-import { renderPdfPages } from "@/lib/pdf";
+import { parsePdf } from "@/lib/pdf";
 import { ProviderName, ScriptToolkitResult } from "@/lib/providers/types";
 
 type UploadedPage = {
   pageIndex: number;
   thumbnailDataUrl: string;
-  text: string;
 };
 
-function SectionCard({
-  title,
-  subtitle,
-  children
-}: {
-  title: string;
-  subtitle: string;
-  children: ReactNode;
-}) {
+function SectionCard({ title, subtitle, children }: { title: string; subtitle: string; children: ReactNode }) {
   return (
-    <section className="rounded-2xl border border-white/10 bg-slate-900/60 p-5 shadow-[0_20px_50px_rgba(2,6,23,0.45)] backdrop-blur">
-      <h3 className="text-lg font-semibold text-white">{title}</h3>
+    <section className="rounded-3xl border border-white/10 bg-slate-900/65 p-6 shadow-[0_30px_80px_rgba(2,6,23,0.55)] backdrop-blur">
+      <h3 className="text-xl font-semibold text-white">{title}</h3>
       <p className="mb-4 mt-1 text-sm text-slate-300">{subtitle}</p>
       {children}
     </section>
+  );
+}
+
+function LoadingOverlay({ message }: { message: string }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm">
+      <div className="w-[min(92vw,480px)] rounded-3xl border border-indigo-300/30 bg-slate-900/90 p-8 text-center">
+        <div className="mx-auto mb-5 h-14 w-14 animate-spin rounded-full border-4 border-indigo-400/30 border-t-cyan-300" />
+        <p className="text-lg font-semibold text-white">Analyzing your full script PDF</p>
+        <p className="mt-2 text-sm text-slate-300">{message}</p>
+      </div>
+    </div>
+  );
+}
+
+function ResourceList({ items }: { items: ScriptToolkitResult["imageReferences"] }) {
+  return (
+    <ul className="space-y-2">
+      {items.map((item, index) => (
+        <li key={`${item.url}-${index}`} className="rounded-xl border border-white/10 bg-slate-950/70 p-3 text-sm">
+          <a href={item.url} target="_blank" rel="noreferrer" className="font-medium text-indigo-300 hover:text-indigo-200">
+            {item.title}
+          </a>
+          <p className="text-slate-300">{item.description}</p>
+          {item.source && <p className="text-xs text-slate-400">{item.source}</p>}
+        </li>
+      ))}
+    </ul>
   );
 }
 
@@ -37,13 +56,12 @@ export default function AppPage() {
   const [provider, setProvider] = useState<ProviderName>("openai");
   const [apiKeyInput, setApiKeyInput] = useState("");
   const [keyStatus, setKeyStatus] = useState("");
-  const [pagesToProcess, setPagesToProcess] = useState(DEFAULT_PAGES_TO_PROCESS);
   const [fileName, setFileName] = useState("");
   const [totalPdfPages, setTotalPdfPages] = useState<number | undefined>(undefined);
   const [uploadedPages, setUploadedPages] = useState<UploadedPage[]>([]);
   const [toolkit, setToolkit] = useState<ScriptToolkitResult | null>(null);
   const [processing, setProcessing] = useState(false);
-  const [status, setStatus] = useState("Upload your script PDF to generate an editor toolkit.");
+  const [status, setStatus] = useState("Upload your full script PDF to generate complete visual resources.");
 
   const storageKey = useMemo(() => `${KEY_STORAGE_PREFIX}_${provider}`, [provider]);
 
@@ -72,29 +90,21 @@ export default function AppPage() {
   async function analyzeScript(file: File) {
     setProcessing(true);
     setToolkit(null);
-    setStatus("Reading PDF and extracting script...");
+    setStatus("Extracting every page from your PDF...");
     setFileName(file.name);
 
     try {
-      const rendered = await renderPdfPages(file, pagesToProcess);
-      setTotalPdfPages(rendered.totalPages);
-      setUploadedPages(
-        rendered.pages.map((page) => ({
-          pageIndex: page.pageIndex,
-          thumbnailDataUrl: page.thumbnailDataUrl,
-          text: page.text
-        }))
-      );
+      const parsed = await parsePdf(file);
+      setTotalPdfPages(parsed.totalPages);
+      setUploadedPages(parsed.pages.map((page) => ({ pageIndex: page.pageIndex, thumbnailDataUrl: page.thumbnailDataUrl })));
 
-      const scriptText = rendered.pages.map((p) => `Page ${p.pageIndex + 1}: ${p.text}`).join("\n\n");
       const apiKey = await getDecryptedApiKey();
-
-      setStatus("Generating premium visual prompts, links, news, and reference materials...");
+      setStatus("Generating high-accuracy prompt packs, links, and references...");
 
       const response = await fetch("/api/research", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ provider, apiKey, scriptText, fileName: file.name })
+        body: JSON.stringify({ provider, apiKey, scriptText: parsed.fullText, fileName: file.name })
       });
 
       const data = await response.json();
@@ -103,7 +113,7 @@ export default function AppPage() {
       }
 
       setToolkit(data);
-      setStatus("Toolkit ready. Your visual research package is now generated.");
+      setStatus("Toolkit ready. Full-PDF results are prepared for editing.");
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "Failed to analyze script.");
     } finally {
@@ -113,43 +123,33 @@ export default function AppPage() {
 
   return (
     <main className="mx-auto w-full max-w-7xl px-4 pb-16 pt-8 md:px-8">
-      <div className="mb-8 rounded-3xl border border-indigo-300/20 bg-gradient-to-br from-indigo-500/20 via-slate-900 to-slate-950 p-8 shadow-2xl">
+      {processing && <LoadingOverlay message={status} />}
+
+      <div className="mb-8 rounded-3xl border border-indigo-300/25 bg-gradient-to-br from-indigo-500/20 via-slate-900 to-slate-950 p-8 shadow-2xl">
         <p className="mb-3 inline-flex rounded-full border border-cyan-300/30 bg-cyan-400/10 px-3 py-1 text-xs font-semibold tracking-wide text-cyan-200">
-          PAGE TO PIXEL · EDITOR SUITE
+          PAGE TO PIXEL · PRO EDITOR WORKBENCH
         </p>
-        <h1 className="text-3xl font-bold tracking-tight text-white md:text-4xl">AI Visual Research Workbench for Video Editors</h1>
-        <p className="mt-3 max-w-3xl text-sm text-slate-200 md:text-base">
-          Upload your script PDF and instantly get polished image prompts, related image links, current news resources,
-          video references, and production research—all organized for fast editing workflows.
+        <h1 className="text-3xl font-bold tracking-tight text-white md:text-5xl">Professional Visual Research Platform for Video Editors</h1>
+        <p className="mt-3 max-w-4xl text-sm text-slate-200 md:text-base">
+          Paste your API key, upload your complete script PDF, and receive a production-ready package: AI image prompts,
+          image discovery links, relevant news, b-roll references, and context research.
         </p>
       </div>
 
-      <section className="mb-6 grid gap-4 rounded-2xl border border-white/10 bg-slate-900/60 p-5 md:grid-cols-2">
+      <section className="mb-6 grid gap-4 rounded-3xl border border-white/10 bg-slate-900/60 p-5 md:grid-cols-3">
         <ProviderSelector provider={provider} onChange={setProvider} />
         <ApiKeyManager value={apiKeyInput} onChange={setApiKeyInput} onSave={handleSaveKey} onClear={handleClearKey} status={keyStatus} />
         <PdfUploader onFile={analyzeScript} />
-        <div>
-          <label className="mb-1 block text-sm text-slate-300">Process first N pages (max {MAX_PAGE_LIMIT})</label>
-          <input
-            type="number"
-            min={1}
-            max={MAX_PAGE_LIMIT}
-            value={pagesToProcess}
-            onChange={(e) => setPagesToProcess(Number(e.target.value))}
-            className="w-full rounded-xl border border-white/15 bg-slate-950/80 px-3 py-2"
-          />
-        </div>
       </section>
 
       <p className="mb-6 rounded-xl border border-white/10 bg-slate-900/50 px-4 py-3 text-sm text-slate-200">
-        {processing ? "Working... " : "Status: "}
-        {status}
-        {totalPdfPages ? ` · PDF pages: ${totalPdfPages}` : ""}
+        Status: {status}
+        {totalPdfPages ? ` · Total pages processed: ${totalPdfPages}` : ""}
       </p>
 
       {!!uploadedPages.length && (
-        <SectionCard title="Script Pages" subtitle="Quick page preview extracted from your PDF.">
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <SectionCard title="Preview" subtitle="The first pages are shown for quick visual confirmation. Analysis uses the full PDF.">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
             {uploadedPages.map((page) => (
               <div key={page.pageIndex} className="rounded-xl border border-white/10 bg-slate-950/70 p-2">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -168,7 +168,7 @@ export default function AppPage() {
             <p className="rounded-lg border border-indigo-300/20 bg-indigo-500/10 p-3 text-sm text-indigo-100">{toolkit.productionAngle}</p>
           </SectionCard>
 
-          <SectionCard title="AI Image Prompts" subtitle="High-quality prompts for generating cinematic visuals.">
+          <SectionCard title="AI Image Prompts" subtitle="Cinematic prompts aligned with your script narrative.">
             <div className="grid gap-3 lg:grid-cols-2">
               {toolkit.imagePrompts.map((item, index) => (
                 <article key={`${item.sceneTitle}-${index}`} className="rounded-xl border border-white/10 bg-slate-950/70 p-4">
@@ -183,60 +183,23 @@ export default function AppPage() {
             </div>
           </SectionCard>
 
-          <SectionCard title="Image Resources" subtitle="Direct references and source links for still imagery.">
-            <ul className="space-y-2">
-              {toolkit.imageReferences.map((item, index) => (
-                <li key={`${item.url}-${index}`} className="rounded-lg border border-white/10 bg-slate-950/70 p-3 text-sm">
-                  <a href={item.url} target="_blank" rel="noreferrer" className="font-medium text-indigo-300 hover:text-indigo-200">
-                    {item.title}
-                  </a>
-                  <p className="text-slate-300">{item.description}</p>
-                  <p className="text-xs text-slate-400">{item.source || "Reference"}</p>
-                </li>
-              ))}
-            </ul>
-          </SectionCard>
-
           <div className="grid gap-5 lg:grid-cols-2">
-            <SectionCard title="Related News" subtitle="Editorially relevant stories and article links.">
-              <ul className="space-y-2">
-                {toolkit.newsLinks.map((item, index) => (
-                  <li key={`${item.url}-${index}`} className="rounded-lg border border-white/10 bg-slate-950/70 p-3 text-sm">
-                    <a href={item.url} target="_blank" rel="noreferrer" className="font-medium text-indigo-300 hover:text-indigo-200">
-                      {item.title}
-                    </a>
-                    <p className="text-slate-300">{item.description}</p>
-                  </li>
-                ))}
-              </ul>
+            <SectionCard title="Image Resources" subtitle="Direct still-image sources for your cuts.">
+              <ResourceList items={toolkit.imageReferences} />
             </SectionCard>
-
-            <SectionCard title="Video Clips & B-roll" subtitle="Useful references for motion visuals and editing inspiration.">
-              <ul className="space-y-2">
-                {toolkit.videoReferences.map((item, index) => (
-                  <li key={`${item.url}-${index}`} className="rounded-lg border border-white/10 bg-slate-950/70 p-3 text-sm">
-                    <a href={item.url} target="_blank" rel="noreferrer" className="font-medium text-indigo-300 hover:text-indigo-200">
-                      {item.title}
-                    </a>
-                    <p className="text-slate-300">{item.description}</p>
-                  </li>
-                ))}
-              </ul>
+            <SectionCard title="Related News" subtitle="Topical article sources mapped to the script.">
+              <ResourceList items={toolkit.newsLinks} />
             </SectionCard>
           </div>
 
-          <SectionCard title="Reference Materials" subtitle="Background explainers, reports, and context for your script topic.">
-            <ul className="space-y-2">
-              {toolkit.researchReferences.map((item, index) => (
-                <li key={`${item.url}-${index}`} className="rounded-lg border border-white/10 bg-slate-950/70 p-3 text-sm">
-                  <a href={item.url} target="_blank" rel="noreferrer" className="font-medium text-indigo-300 hover:text-indigo-200">
-                    {item.title}
-                  </a>
-                  <p className="text-slate-300">{item.description}</p>
-                </li>
-              ))}
-            </ul>
-          </SectionCard>
+          <div className="grid gap-5 lg:grid-cols-2">
+            <SectionCard title="Video Clips & B-roll" subtitle="Motion references and footage leads.">
+              <ResourceList items={toolkit.videoReferences} />
+            </SectionCard>
+            <SectionCard title="Reference Materials" subtitle="Reports, explainers, and deeper context.">
+              <ResourceList items={toolkit.researchReferences} />
+            </SectionCard>
+          </div>
         </div>
       )}
     </main>

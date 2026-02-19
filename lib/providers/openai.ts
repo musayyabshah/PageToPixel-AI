@@ -37,10 +37,11 @@ Return strict JSON with keys:
 Return only JSON.`;
 
 const SCRIPT_TOOLKIT_SYSTEM_PROMPT = `You are an elite visual research producer for professional video editors.
-Given a script, return a production-ready toolkit in strict JSON.
+Given a script, return a production-ready toolkit in strict JSON with high relevance to the script topic, people, places, and timeline.
 
 Requirements:
 - Focus on practical assets editors can immediately use.
+- Use only script-grounded context; do not invent unrelated topics.
 - Include concise but high-quality cinematic image prompts.
 - Include reliable links by preferring direct source pages or search URLs from trusted platforms.
 - Keep language specific, modern, and production-oriented.
@@ -61,7 +62,7 @@ Guidelines:
 - Return 6-10 links in each resource list.
 - URL values must be complete https links.
 - Prefer sources like Reuters, AP, BBC, NYT, WSJ, YouTube, Vimeo, Pexels, Pixabay, Unsplash, archive/documentation pages, and high-quality explainers.
-- If exact URLs are uncertain, use high-quality search URLs (Google News, YouTube search, site search) that are still directly usable.
+- If exact URLs are uncertain, use high-quality search URLs (Google News, YouTube search, site search) that are still directly usable and keyword-matched to the script.
 - Return JSON only.`;
 
 export function createOpenAIProvider(apiKey: string): ProviderAdapter {

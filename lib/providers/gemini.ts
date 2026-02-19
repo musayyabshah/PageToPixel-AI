@@ -25,7 +25,7 @@ function parseJsonPayload<T>(raw: string): T {
   }
 }
 
-const SCRIPT_TOOLKIT_PROMPT = `Build a premium script resource toolkit for professional video editors.
+const SCRIPT_TOOLKIT_PROMPT = `Build a premium, script-grounded resource toolkit for professional video editors.
 Return strict JSON with this exact shape:
 {
   "summary": string,
@@ -41,7 +41,7 @@ Rules:
 - 6-10 image prompts.
 - 6-10 resources per list.
 - Links must be complete https URLs.
-- Prefer trusted sources; use direct search URLs if needed.
+- Prefer trusted sources; use direct search URLs if needed and ensure query keywords match the script.
 - JSON only.`;
 
 export function createGeminiProvider(apiKey: string): ProviderAdapter {
