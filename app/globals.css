@@ -7,9 +7,16 @@
 }
 
 body {
-  @apply bg-slate-950 text-slate-100 min-h-screen;
+  @apply min-h-screen text-slate-100;
+  background:
+    radial-gradient(circle at 15% 10%, rgba(59, 130, 246, 0.18), transparent 40%),
+    radial-gradient(circle at 90% 20%, rgba(6, 182, 212, 0.15), transparent 32%),
+    linear-gradient(180deg, #020617 0%, #020617 55%, #0f172a 100%);
 }
 
-input, textarea, select, button {
+input,
+textarea,
+select,
+button {
   @apply outline-none;
 }

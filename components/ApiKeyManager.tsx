@@ -22,12 +22,12 @@ export function ApiKeyManager({
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder="Paste API key"
-          className="flex-1 rounded-md border border-slate-700 bg-slate-900 px-3 py-2"
+          className="flex-1 rounded-xl border border-white/15 bg-slate-950/80 px-3 py-2"
         />
-        <button className="rounded-md bg-indigo-500 px-3 py-2 text-sm font-medium" onClick={onSave} type="button">
+        <button className="rounded-xl bg-indigo-500 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-400" onClick={onSave} type="button">
           Save
         </button>
-        <button className="rounded-md bg-slate-700 px-3 py-2 text-sm font-medium" onClick={onClear} type="button">
+        <button className="rounded-xl bg-slate-700 px-3 py-2 text-sm font-medium text-white hover:bg-slate-600" onClick={onClear} type="button">
           Clear
         </button>
       </div>

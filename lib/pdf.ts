@@ -6,6 +6,7 @@ export type PdfRenderedPage = {
   thumbnailDataUrl: string;
   width: number;
   height: number;
+  text: string;
 };
 
 export async function renderPdfPages(file: File, pagesToProcess: number): Promise<{ pages: PdfRenderedPage[]; totalPages: number }> {
@@ -33,6 +34,13 @@ export async function renderPdfPages(file: File, pagesToProcess: number): Promis
 
     await page.render({ canvasContext: ctx, viewport }).promise;
 
+    const textContent = await page.getTextContent();
+    const pageText = textContent.items
+      .map((item) => ("str" in item ? item.str : ""))
+      .join(" ")
+      .replace(/\s+/g, " ")
+      .trim();
+
     const thumbnailCanvas = document.createElement("canvas");
     const thumbScale = 220 / viewport.width;
     thumbnailCanvas.width = 220;
@@ -53,7 +61,8 @@ export async function renderPdfPages(file: File, pagesToProcess: number): Promis
       imageBase64: base64,
       thumbnailDataUrl: thumbnailCanvas.toDataURL("image/png"),
       width: viewport.width,
-      height: viewport.height
+      height: viewport.height,
+      text: pageText
     });
   }
 
